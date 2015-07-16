@@ -13,6 +13,9 @@ crop.directive('imgCrop', ['$timeout', 'cropHost', 'cropPubSub', function($timeo
       areaMinSize: '=',
       resultImageSize: '@',
 
+      canvasAspect: '=?',
+      canvasIsLandscape: '=?',
+
       onChange: '&',
       onLoadBegin: '&',
       onLoadDone: '&',
@@ -42,6 +45,12 @@ crop.directive('imgCrop', ['$timeout', 'cropHost', 'cropPubSub', function($timeo
            scope.onChange({$dataURI: scope.resultImage});
          }
        };
+
+       var updatePropertsWithSize = function (scope, size) {
+          var isLandscape = size.width > size.height;
+          scope.canvasIsLandscape = isLandscape;
+          scope.canvasAspect = size;
+      };
 
       // Wrapper to safely exec functions within $apply on a running $digest cycle
       var fnSafeApply=function(fn) {
@@ -106,6 +115,13 @@ crop.directive('imgCrop', ['$timeout', 'cropHost', 'cropPubSub', function($timeo
         },
         true
       );
+
+      scope.$watch(function () {
+          var el = element.find('canvas')[0];
+          return {width: el.width, height: el.height};
+      }, function (size) {
+          updatePropertsWithSize(scope, size);
+      }, true);
 
       // Destroy CropHost Instance when the directive is destroying
       scope.$on('$destroy', function(){
