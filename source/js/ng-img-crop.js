@@ -48,11 +48,8 @@ crop.directive('imgCrop', ['$timeout', 'cropHost', 'cropPubSub', function($timeo
 
       var updatePropertsWithSize = function (scope, size) {
           var isLandscape = size.width > size.height;
-          
-          scope.$apply(function (scope) {
-            scope.canvasIsLandscape = isLandscape;
-            scope.canvasAspect = size;
-          });
+          scope.canvasIsLandscape = isLandscape;
+          scope.canvasAspect = size;
       };
 
       // Wrapper to safely exec functions within $apply on a running $digest cycle

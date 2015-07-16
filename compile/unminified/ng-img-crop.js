@@ -5,7 +5,7 @@
  * Copyright (c) 2015 Alex Kaul
  * License: MIT
  *
- * Generated at Thursday, July 16th, 2015, 1:36:21 PM
+ * Generated at Thursday, July 16th, 2015, 2:31:02 PM
  */
 (function() {
 'use strict';
@@ -1278,7 +1278,7 @@ crop.directive('imgCrop', ['$timeout', 'cropHost', 'cropPubSub', function($timeo
          }
        };
 
-       var updatePropertsWithSize = function (scope, size) {
+      var updatePropertsWithSize = function (scope, size) {
           var isLandscape = size.width > size.height;
           scope.canvasIsLandscape = isLandscape;
           scope.canvasAspect = size;
@@ -1350,7 +1350,7 @@ crop.directive('imgCrop', ['$timeout', 'cropHost', 'cropPubSub', function($timeo
 
       scope.$watch(function () {
           var el = element.find('canvas')[0];
-          return {width: el.width, height: el.height};
+          return { width: el.width, height: el.height };
       }, function (size) {
           updatePropertsWithSize(scope, size);
       }, true);
