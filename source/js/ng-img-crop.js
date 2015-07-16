@@ -46,10 +46,13 @@ crop.directive('imgCrop', ['$timeout', 'cropHost', 'cropPubSub', function($timeo
          }
        };
 
-       var updatePropertsWithSize = function (scope, size) {
+      var updatePropertsWithSize = function (scope, size) {
           var isLandscape = size.width > size.height;
-          scope.canvasIsLandscape = isLandscape;
-          scope.canvasAspect = size;
+          
+          scope.$apply(function (scope) {
+            scope.canvasIsLandscape = isLandscape;
+            scope.canvasAspect = size;
+          });
       };
 
       // Wrapper to safely exec functions within $apply on a running $digest cycle
@@ -118,7 +121,7 @@ crop.directive('imgCrop', ['$timeout', 'cropHost', 'cropPubSub', function($timeo
 
       scope.$watch(function () {
           var el = element.find('canvas')[0];
-          return {width: el.width, height: el.height};
+          return { width: el.width, height: el.height };
       }, function (size) {
           updatePropertsWithSize(scope, size);
       }, true);
