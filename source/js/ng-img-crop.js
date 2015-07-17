@@ -1,132 +1,185 @@
 'use strict';
 
-crop.directive('imgCrop', ['$timeout', 'cropHost', 'cropPubSub', function($timeout, CropHost, CropPubSub) {
-  return {
-    restrict: 'E',
-    scope: {
-      image: '=',
-      resultImage: '=',
+crop.directive('imgCrop', ['$timeout', 'cropHost', 'cropPubSub', function ($timeout, CropHost, CropPubSub) {
+    return {
+        restrict: 'E',
+        scope: {
+            image: '=',
+            resultImage: '=',
 
-      changeOnFly: '=',
-      areaType: '@',
-      aspectRatio: '=',
-      areaMinSize: '=',
-      resultImageSize: '@',
+            changeOnFly: '=',
+            areaCoords: '=',
+            liveUpdateAreaCoords: '=',
+            areaType: '@',
+            aspectRatio: '=',
+            areaMinSize: '=',
+            resultImageSize: '=',
+            resultImageFormat: '@',
+            resultImageQuality: '=',
+            canvasSize: '=',
+            canvasAspect: '=?',
+            canvasIsLandscape: '=?',
+            onChange: '&',
+            onLoadBegin: '&',
+            onLoadDone: '&',
+            onLoadError: '&',
+            manuallyCrop: '=?'
+        },
+        template: '<canvas></canvas>',
+        controller: ['$scope', function ($scope) {
+            $scope.events = new CropPubSub();
+        }],
+        link: function (scope, element, attrs) {
+            // Init Events Manager
+            var events = scope.events;
 
-      canvasAspect: '=?',
-      canvasIsLandscape: '=?',
+            // Init Crop Host
+            var cropHost = new CropHost(element.find('canvas'), {}, events);
 
-      onChange: '&',
-      onLoadBegin: '&',
-      onLoadDone: '&',
-      onLoadError: '&'
-    },
-    template: '<canvas></canvas>',
-    controller: function($scope/*, $attrs, $element*/) {
-      $scope.events = new CropPubSub();
-    },
-    link: function(scope, element/*, attrs*/) {
-      // Init Events Manager
-      var events = scope.events;
+            // Store Result Image to check if it's changed
+            var storedResultImage;
 
-      // Init Crop Host
-      var cropHost=new CropHost(element.find('canvas'), {}, events);
+            var updateResultImage = function (scope) {
+                updateAreaCoords(scope);
+                var resultImage = cropHost.getResultImageDataURI();
+                if (storedResultImage !== resultImage) {
+                    storedResultImage = resultImage;
+                    if (angular.isDefined(scope.resultImage)) {
+                        scope.resultImage = resultImage;
+                    }
+                    scope.onChange({$dataURI: scope.resultImage});
+                }
+            };
 
-      // Store Result Image to check if it's changed
-      var storedResultImage;
+            var updateAreaCoords = function (scope) {
+                if (typeof scope.areaCoords != 'undefined') {
+                    var areaCoords = cropHost.getAreaCoords();
+                    scope.areaCoords = areaCoords;
+                }
+            };
 
-       var updateResultImage=function(scope) {
-        var resultImage=cropHost.getResultImageDataURI();
-         if(storedResultImage!==resultImage) {
-           storedResultImage=resultImage;
-           if(angular.isDefined(scope.resultImage)) {
-             scope.resultImage=resultImage;
-           }
-           scope.onChange({$dataURI: scope.resultImage});
-         }
-       };
+            // Wrapper to safely exec functions within $apply on a running $digest cycle
+            var fnSafeApply = function (fn) {
+                return function () {
+                    $timeout(function () {
+                        scope.$apply(function (scope) {
+                            fn(scope);
+                        });
+                    });
+                };
+            };
 
-      var updatePropertsWithSize = function (scope, size) {
-          var isLandscape = size.width > size.height;
-          scope.canvasIsLandscape = isLandscape;
-          scope.canvasAspect = size;
-      };
+            var updatePropertsWithSize = function (scope, size) {
+                var isLandscape = size.width > size.height;
+                scope.canvasIsLandscape = isLandscape;
+                scope.canvasAspect = size;
+            };
 
-      // Wrapper to safely exec functions within $apply on a running $digest cycle
-      var fnSafeApply=function(fn) {
-        return function(){
-          $timeout(function(){
-            scope.$apply(function(scope){
-              fn(scope);
+            // Setup CropHost Event Handlers
+            events
+                .on('load-start', fnSafeApply(function (scope) {
+                    scope.onLoadBegin({});
+                }))
+                .on('load-done', fnSafeApply(function (scope) {
+                    scope.onLoadDone({});
+                }))
+                .on('load-error', fnSafeApply(function (scope) {
+                    scope.onLoadError({});
+                }))
+                .on('area-move area-resize', fnSafeApply(function (scope) {
+                    if (!!scope.changeOnFly) {
+                        updateResultImage(scope);
+                    } else {
+                        if(attrs.liveUpdateAreaCoords) {
+                            updateAreaCoords(scope);
+                        }
+                    }
+                }))
+                .on('area-move-end area-resize-end image-updated', fnSafeApply(function (scope) {
+                    if(!attrs.manuallyCrop) {
+                        updateResultImage(scope);
+                    }
+                }));
+
+            // Sync CropHost with Directive's options
+            scope.$watch('image', function () {
+                cropHost.setNewImageSource(scope.image);
             });
-          });
-        };
-      };
+            scope.$watch('areaType', function () {
+                cropHost.setAreaType(scope.areaType);
+                updateResultImage(scope);
+            });
+            scope.$watch('aspectRatio', function () {
+                cropHost.setAspectRatio(scope.aspectRatio);
+                updateResultImage(scope);
+            });
+            scope.$watch('areaMinSize', function () {
+                cropHost.setAreaMinSize(scope.areaMinSize);
+                updateResultImage(scope);
+            });
+            scope.$watch('resultImageSize', function () {
+                cropHost.setResultImageSize(scope.resultImageSize);
+                updateResultImage(scope);
+            });
+            scope.$watch('resultImageFormat', function () {
+                cropHost.setResultImageFormat(scope.resultImageFormat);
+                updateResultImage(scope);
+            });
+            scope.$watch('resultImageQuality', function () {
+                cropHost.setResultImageQuality(scope.resultImageQuality);
+                updateResultImage(scope);
+            });
 
-      // Setup CropHost Event Handlers
-      events
-        .on('load-start', fnSafeApply(function(scope){
-          scope.onLoadBegin({});
-        }))
-        .on('load-done', fnSafeApply(function(scope){
-          scope.onLoadDone({});
-        }))
-        .on('load-error', fnSafeApply(function(scope){
-          scope.onLoadError({});
-        }))
-        .on('area-move area-resize', fnSafeApply(function(scope){
-          if(!!scope.changeOnFly) {
-            updateResultImage(scope);
-          }
-        }))
-        .on('area-move-end area-resize-end image-updated', fnSafeApply(function(scope){
-          updateResultImage(scope);
-        }));
+            scope.$watch('canvasSize', function (newVal, oldVal) {
+                if (newVal) {
+                    var update = false;
+                    if (!oldVal) {
+                        update = true;
+                    }
+                    else if (newVal[0] === oldVal[0] && newVal[1] === oldVal[1]) {
+                        update = false;
+                    }
+                    else {
+                        update = true;
+                    }
 
-      // Sync CropHost with Directive's options
-      scope.$watch('image',function(){
-        cropHost.setNewImageSource(scope.image);
-      });
-      scope.$watch('areaType',function(){
-        cropHost.setAreaType(scope.areaType);
-        updateResultImage(scope);
-      });
-      scope.$watch('aspectRatio',function(){
-        cropHost.setAspectRatio(scope.aspectRatio);
-        updateResultImage(scope);
-      });
-      scope.$watch('areaMinSize',function(){
-        cropHost.setAreaMinSize(scope.areaMinSize);
-        updateResultImage(scope);
-      });
-      scope.$watch('resultImageSize',function(){
-        cropHost.setResultImageSize(scope.resultImageSize);
-        updateResultImage(scope);
-      });
+                    if (update) {
+                        cropHost.setCanvasSize(newVal);
+                        updateResultImage(scope);
+                    }
+                }
+            });
 
-      // Update CropHost dimensions when the directive element is resized
-      scope.$watch(
-        function () {
-          return [element[0].clientWidth, element[0].clientHeight];
-        },
-        function (value) {
-          cropHost.setMaxDimensions(value[0],value[1]);
-          updateResultImage(scope);
-        },
-        true
-      );
+            scope.manuallyCrop = function() {
+                updateResultImage(scope);
+            };
 
-      scope.$watch(function () {
-          var el = element.find('canvas')[0];
-          return { width: el.width, height: el.height };
-      }, function (size) {
-          updatePropertsWithSize(scope, size);
-      }, true);
+            // Update CropHost dimensions when the directive element is resized
+            scope.$watch(
+                function () {
+                    return [element[0].clientWidth, element[0].clientHeight];
+                },
+                function (value) {
+                    cropHost.setMaxDimensions(value[0], value[1]);
+                    updateResultImage(scope);
+                },
+                true
+            );
 
-      // Destroy CropHost Instance when the directive is destroying
-      scope.$on('$destroy', function(){
-          cropHost.destroy();
-      });
+            scope.$watch(function () {
+                var el = element.find('canvas')[0];
+                return {width: el.width, height: el.height};
+            }, function (size) {
+                updatePropertsWithSize(scope, size);
+            }, true);
+
+            // Destroy CropHost Instance when the directive is destroying
+            scope.$on('$destroy', function () {
+                cropHost.destroy();
+            });
+
+        }
     }
-  };
-}]);
+        ;
+}])
+;
